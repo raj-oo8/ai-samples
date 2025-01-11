@@ -5,11 +5,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.SemanticKernel.Data;
-using Microsoft.SemanticKernel.Plugins.Web.Bing;
+//using Microsoft.SemanticKernel.Data;
 //using Microsoft.SemanticKernel.Plugins.Web.Bing;
 
-#pragma warning disable SKEXP0050
+//#pragma warning disable SKEXP0050
 
 namespace ConsoleApp
 {
