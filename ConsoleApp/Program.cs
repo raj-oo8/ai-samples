@@ -5,7 +5,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Data;
+using Microsoft.SemanticKernel.Plugins.Web.Bing;
 //using Microsoft.SemanticKernel.Plugins.Web.Bing;
+
+#pragma warning disable SKEXP0050
 
 namespace ConsoleApp
 {
@@ -24,7 +28,7 @@ namespace ConsoleApp
             var openAIApiKey = configuration["OPENAI_KEY"];
             //var bingApiKey = configuration["BING_API_KEY"];
 
-            if (string.IsNullOrEmpty(openAIApiKey) || string.IsNullOrEmpty(openAIEndpoint) || string.IsNullOrEmpty(openAIModelId))
+            if (string.IsNullOrWhiteSpace(openAIApiKey) || string.IsNullOrWhiteSpace(openAIEndpoint) || string.IsNullOrWhiteSpace(openAIModelId))
             {
                 Console.WriteLine("One or more configuration values are missing. Please check your user secrets.");
                 Console.ReadKey();
@@ -41,19 +45,22 @@ namespace ConsoleApp
             Kernel kernel = builder.Build();
             var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-            // Create a text search using Bing search
-            //var textSearch = new BingTextSearch(apiKey: bingApiKey);
+            //if (!string.IsNullOrWhiteSpace(bingApiKey))
+            //{
+            //    // Create a text search using Bing search
+            //    var textSearch = new BingTextSearch(bingApiKey);
 
-            // Build a text search plugin with Bing search and add to the kernel
-            //var searchPlugin = textSearch.CreateWithSearch("SearchPlugin");
-            //kernel.Plugins.Add(searchPlugin);
+            //    // Build a text search plugin with Bing search and add to the kernel
+            //    var searchPlugin = textSearch.CreateWithSearch("SearchPlugin");
+            //    kernel.Plugins.Add(searchPlugin);
+            //}
 
             // Enable planning
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
                 MaxTokens = 100,
-                StopSequences = new[] { ".", "!", "?" }          
+                StopSequences = new[] { ".", "!", "?" }
             };
 
             // Create a history store the conversation
