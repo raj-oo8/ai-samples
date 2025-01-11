@@ -63,7 +63,7 @@ namespace ConsoleApp
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                MaxTokens = 100
+                MaxTokens = 50
             };
 
             // Create a history store the conversation
