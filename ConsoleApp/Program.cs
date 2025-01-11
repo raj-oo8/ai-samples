@@ -54,17 +54,22 @@ namespace ConsoleApp
             // Enable planning
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                MaxTokens = 50,
+                StopSequences = new[] { ".", "!", "?", ":" } // Ensure responses end with a complete sentence           
             };
 
             // Create a history store the conversation
             var history = new ChatHistory();
+            // Add a system prompt for persona instructions
+            history.AddSystemMessage("Answer in one single sentence with collocations");
 
             // Initiate a back-and-forth chat
             string? userInput;
             do
             {
                 // Collect user input
+                Console.WriteLine();
                 Console.Write("User > ");
                 userInput = Console.ReadLine();
 
@@ -76,6 +81,7 @@ namespace ConsoleApp
                     Console.WriteLine("User input cannot be null or empty. Please try again.");
                     continue;
                 }
+
                 history.AddUserMessage(userInput);
 
                 // Get the response from the AI
@@ -89,7 +95,14 @@ namespace ConsoleApp
 
                 // Add the message from the agent to the chat history
                 history.AddMessage(result.Role, result.Content ?? string.Empty);
-            } 
+
+                // Exit the loop if the user types "exit"
+                if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.ReadKey();
+                    break;
+                }
+            }
             while (userInput is not null);
         }
     }
