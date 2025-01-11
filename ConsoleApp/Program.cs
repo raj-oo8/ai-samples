@@ -5,10 +5,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-//using Microsoft.SemanticKernel.Data;
-//using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using Microsoft.SemanticKernel.Plugins.Core;
+using Microsoft.SemanticKernel.Data;
+using Microsoft.SemanticKernel.Plugins.Web.Bing;
 
-//#pragma warning disable SKEXP0050
+#pragma warning disable SKEXP0050
 
 namespace ConsoleApp
 {
@@ -25,7 +26,7 @@ namespace ConsoleApp
             var openAIModelId = configuration["OPENAI_MODEL"];
             var openAIEndpoint = configuration["OPENAI_ENDPOINT"];
             var openAIApiKey = configuration["OPENAI_KEY"];
-            //var bingApiKey = configuration["BING_API_KEY"];
+            var bingApiKey = configuration["BING_API_KEY"];
 
             if (string.IsNullOrWhiteSpace(openAIApiKey) || string.IsNullOrWhiteSpace(openAIEndpoint) || string.IsNullOrWhiteSpace(openAIModelId))
             {
@@ -44,22 +45,25 @@ namespace ConsoleApp
             Kernel kernel = builder.Build();
             var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-            //if (!string.IsNullOrWhiteSpace(bingApiKey))
-            //{
-            //    // Create a text search using Bing search
-            //    var textSearch = new BingTextSearch(bingApiKey);
+            if (!string.IsNullOrWhiteSpace(bingApiKey))
+            {
+                // Create a text search using Bing search
+                var textSearch = new BingTextSearch(bingApiKey);
 
-            //    // Build a text search plugin with Bing search and add to the kernel
-            //    var searchPlugin = textSearch.CreateWithSearch("SearchPlugin");
-            //    kernel.Plugins.Add(searchPlugin);
-            //}
+                // Build a text search plugin with Bing search and add to the kernel
+                var searchPlugin = textSearch.CreateWithSearch("SearchPlugin");
+                kernel.Plugins.Add(searchPlugin);
+            }
+
+            // Add a plugin (the LightsPlugin class is defined below)
+            kernel.Plugins.AddFromType<TimePlugin>("Time");
+            kernel.Plugins.AddFromType<MathPlugin>("Math");
 
             // Enable planning
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                MaxTokens = 100,
-                StopSequences = new[] { ".", "!", "?" }
+                MaxTokens = 100
             };
 
             // Create a history store the conversation
@@ -88,22 +92,22 @@ namespace ConsoleApp
                 history.AddUserMessage(userInput);
 
                 // Get the response from the AI
-                var response = chatCompletionService.GetStreamingChatMessageContentsAsync(
-                    chatHistory: history,
+                var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
+                    history,
                     executionSettings: openAIPromptExecutionSettings,
                     kernel: kernel);
 
                 // Print the results
                 Console.Write("Assistant > ");
-                var result = string.Empty;
-                await foreach (var chunk in response)
+                var response = string.Empty;
+                await foreach (var item in result)
                 {
-                    result += chunk;
-                    Console.Write(chunk);
+                    response += item;
+                    Console.Write(item);
                 }
 
                 // Add the message from the agent to the chat history
-                history.AddAssistantMessage(result);
+                history.AddAssistantMessage(response);
 
                 if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
