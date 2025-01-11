@@ -1,4 +1,4 @@
-﻿// Import packages
+﻿using Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -13,20 +13,17 @@ namespace ConsoleApp
     {
         static async Task Main(string[] args)
         {
-            // Build configuration
             var configurationBuilder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddUserSecrets<Program>();
             IConfiguration configuration = configurationBuilder.Build();
 
-            // Populate values from your OpenAI deployment
             var openAIModelId = configuration["OPENAI_MODEL"];
             var openAIEndpoint = configuration["OPENAI_ENDPOINT"];
             var openAIApiKey = configuration["OPENAI_KEY"];
             //var bingApiKey = configuration["BING_API_KEY"];
 
-            // Check for null values and handle accordingly
             if (string.IsNullOrEmpty(openAIApiKey) || string.IsNullOrEmpty(openAIEndpoint) || string.IsNullOrEmpty(openAIModelId))
             {
                 Console.WriteLine("One or more configuration values are missing. Please check your user secrets.");
@@ -55,12 +52,13 @@ namespace ConsoleApp
             OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                MaxTokens = 50,
-                StopSequences = new[] { ".", "!", "?", ":" } // Ensure responses end with a complete sentence           
+                MaxTokens = 100,
+                StopSequences = new[] { ".", "!", "?" }          
             };
 
             // Create a history store the conversation
             var history = new ChatHistory();
+
             // Add a system prompt for persona instructions
             history.AddSystemMessage("Answer in one single sentence with collocations");
 
@@ -70,33 +68,37 @@ namespace ConsoleApp
             {
                 // Collect user input
                 Console.WriteLine();
+                Console.WriteLine();
                 Console.Write("User > ");
                 userInput = Console.ReadLine();
 
-                // Add user input
-
-                // Check for null or empty user input
                 if (string.IsNullOrEmpty(userInput))
                 {
                     Console.WriteLine("User input cannot be null or empty. Please try again.");
                     continue;
                 }
 
+                // Add user input
                 history.AddUserMessage(userInput);
 
                 // Get the response from the AI
-                var result = await chatCompletionService.GetChatMessageContentAsync(
-                    history,
+                var response = chatCompletionService.GetStreamingChatMessageContentsAsync(
+                    chatHistory: history,
                     executionSettings: openAIPromptExecutionSettings,
                     kernel: kernel);
 
                 // Print the results
-                Console.WriteLine("Assistant > " + result);
+                Console.Write("Assistant > ");
+                var result = string.Empty;
+                await foreach (var chunk in response)
+                {
+                    result += chunk;
+                    Console.Write(chunk);
+                }
 
                 // Add the message from the agent to the chat history
-                history.AddMessage(result.Role, result.Content ?? string.Empty);
+                history.AddAssistantMessage(result);
 
-                // Exit the loop if the user types "exit"
                 if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
                     Console.ReadKey();
