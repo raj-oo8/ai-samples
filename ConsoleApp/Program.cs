@@ -38,7 +38,7 @@ namespace ConsoleApp
             var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(openAIModelId, openAIEndpoint, openAIApiKey);
 
             // Add enterprise components
-            builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
+            builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
 
             // Build the kernel
             Kernel kernel = builder.Build();
