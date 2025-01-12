@@ -58,15 +58,15 @@ namespace SemanticKernel.ConsoleApp
                 Kernel kernel = builder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                //if (!string.IsNullOrWhiteSpace(bingApiKey))
-                //{
-                //    // Create a text search using Bing search
-                //    var webSearch = new BingTextSearch(bingApiKey);
+                if (!string.IsNullOrWhiteSpace(bingApiKey))
+                {
+                    // Create a text search using Bing search
+                    var webSearch = new BingTextSearch(bingApiKey);
 
-                //    // Build a text search plugin with Bing search and add to the kernel
-                //    var searchPlugin = webSearch.CreateWithSearch("SearchPlugin");
-                //    kernel.Plugins.Add(searchPlugin);
-                //}
+                    // Build a text search plugin with Bing search and add to the kernel
+                    var searchPlugin = webSearch.CreateWithSearch("SearchPlugin");
+                    kernel.Plugins.Add(searchPlugin);
+                }
 
                 // Create an embedding generation service.
                 var textEmbeddingGeneration = new AzureOpenAITextEmbeddingGenerationService(
@@ -112,7 +112,7 @@ namespace SemanticKernel.ConsoleApp
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Required(),
                     MaxTokens = 50,
                     ChatSystemPrompt = "Answer in one single sentence with collocations"
                 };
