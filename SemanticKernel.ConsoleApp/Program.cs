@@ -11,6 +11,7 @@ using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using System.ClientModel;
 using System.Text.RegularExpressions;
 
 #pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
@@ -50,6 +51,7 @@ namespace SemanticKernel.ConsoleApp
                 var inMemoryVectorStore = new InMemoryVectorStore();
                 // Get a collection of vectors from the InMemory vector store.
                 var vectorStoreRecordCollection = inMemoryVectorStore.GetCollection<Guid, VectorModel>("VectorData");
+                await vectorStoreRecordCollection.CreateCollectionIfNotExistsAsync().ConfigureAwait(false);
 
                 // Add plugins
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
@@ -100,28 +102,38 @@ namespace SemanticKernel.ConsoleApp
                     history.AddUserMessage(userInput);
                     history.AddAssistantMessage(searchResultsText);
 
-                    // Get the response from the AI
-                    var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
-                        history,
-                        executionSettings: openAIPromptExecutionSettings,
-                        kernel: kernel);
-
-                    // Print the results
-                    Console.Write("Assistant > ");
-                    var response = string.Empty;
-                    await foreach (var item in result)
+                    try
                     {
-                        response += item;
-                        Console.Write(item);
+                        // Get the response from the AI
+                        var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
+                            history,
+                            executionSettings: openAIPromptExecutionSettings,
+                            kernel: kernel);
+
+                        // Print the results
+                        Console.Write("Assistant > ");
+                        var response = string.Empty;
+                        await foreach (var item in result)
+                        {
+                            response += item;
+                            Console.Write(item);
+                        }
+
+                        // Add the message from the agent to the chat history
+                        history.AddAssistantMessage(response);
+
+                        if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.ReadKey();
+                            break;
+                        }
                     }
-
-                    // Add the message from the agent to the chat history
-                    history.AddAssistantMessage(response);
-
-                    if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                    catch (ClientResultException clientException) when (clientException.ToString().Contains("429"))
                     {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(clientException.Message);
+                        Console.ResetColor();
                         Console.ReadKey();
-                        break;
                     }
                 }
                 while (userInput is not null);
@@ -140,7 +152,7 @@ namespace SemanticKernel.ConsoleApp
             var webSearch = new BingTextSearch(configurationModel.BingKey);
 
             // Build a text search plugin with Bing search and add to the kernel
-            return webSearch.CreateWithSearch("SearchPlugin");
+            return webSearch.CreateWithGetTextSearchResults("SearchPlugin");
         }
 
         static async Task<KernelPlugin> CreateVectorSearchAsync
@@ -156,7 +168,7 @@ namespace SemanticKernel.ConsoleApp
             string[] preprocessedLines = lines.Select(PreprocessText).ToArray();
 
             // Generate embeddings for each line and add to the InMemory vector store.
-            foreach (var item in preprocessedLines)
+            var tasks = preprocessedLines.Select(async item =>
             {
                 ReadOnlyMemory<float> embedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(item);
 
@@ -166,8 +178,10 @@ namespace SemanticKernel.ConsoleApp
                     Key = Guid.NewGuid(),
                     Text = item,
                     Embedding = embedding
-                });       
-            }
+                });
+            });
+
+            await Task.WhenAll(tasks);
 
             // Create a text search plugin with the InMemory vector store and add to the kernel.
             var searchResult = new VectorStoreTextSearch<VectorModel>(vectorStoreRecordCollection, azureOpenAITextEmbeddingGenerationService);
