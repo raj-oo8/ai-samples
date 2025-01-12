@@ -11,6 +11,7 @@ using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using System.Text.RegularExpressions;
 
 #pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
 
@@ -20,6 +21,7 @@ namespace SemanticKernel.ConsoleApp
     {
         public static async Task Main(string[] args)
         {
+            Console.WriteLine("Starting...");
             try
             {
                 var configurationBuilder = new ConfigurationBuilder()
@@ -79,14 +81,35 @@ namespace SemanticKernel.ConsoleApp
                     };
                 }
 
+                // Function to preprocess text
+                static string PreprocessText(string text)
+                {
+                    // Remove special characters and extra whitespace
+                    text = Regex.Replace(text, @"[^\w\s]", "");
+                    text = Regex.Replace(text, @"\s+", " ").Trim();
+
+                    // Convert to lowercase
+                    text = text.ToLower();
+
+                    return text;
+                }
+
                 // Read lines from sample data text file
-                Console.WriteLine("Reading sample data from file...");
                 string sampleDataFilePath = "sampleData.txt";
+                if (!File.Exists(sampleDataFilePath))
+                {
+                    Console.WriteLine($"Sample data file '{sampleDataFilePath}' not found.");
+                    return;
+                }
+
                 string[] lines = File.ReadAllLines(sampleDataFilePath);
+
+                // Preprocess each line
+                string[] preprocessedLines = lines.Select(PreprocessText).ToArray();
 
                 // Create a record collection from a list of strings using the provided delegate.
                 var vectorizedSearch = await CreateCollectionFromListAsync<Guid, DataModel>(
-                    vectorStore, collectionName, lines, textEmbeddingGeneration, CreateRecord);
+                    vectorStore, collectionName, preprocessedLines, textEmbeddingGeneration, CreateRecord);
 
                 // Create a text search instance using the InMemory vector store.
                 var vectorSearch = new VectorStoreTextSearch<DataModel>(vectorizedSearch, textEmbeddingGeneration);
@@ -95,7 +118,6 @@ namespace SemanticKernel.ConsoleApp
                 var vectorSearchPlugin = vectorSearch.CreateWithGetTextSearchResults("VectorSearchPlugin");
                 kernel.Plugins.Add(vectorSearchPlugin);
 
-                // Add a plugin (the LightsPlugin class is defined below)
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
 
@@ -105,7 +127,7 @@ namespace SemanticKernel.ConsoleApp
                     var webSearch = new BingTextSearch(bingApiKey);
 
                     // Build a text search plugin with Bing search and add to the kernel
-                    var searchPlugin = webSearch.CreateWithSearch("SearchPlugin");
+                    var searchPlugin = webSearch.CreateWithGetTextSearchResults("SearchPlugin");
                     kernel.Plugins.Add(searchPlugin);
                 }
 
@@ -113,7 +135,7 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Required(),
-                    MaxTokens = 50,
+                    MaxTokens = 100,
                     ChatSystemPrompt = "Answer in one single sentence with collocations"
                 };
 
@@ -208,7 +230,7 @@ namespace SemanticKernel.ConsoleApp
             [TextSearchResultValue]
             public required string Text { get; init; }
 
-            [VectorStoreRecordVector(1536)]
+            [VectorStoreRecordVector(3072)]
             public ReadOnlyMemory<float> Embedding { get; init; }
         }
     }
