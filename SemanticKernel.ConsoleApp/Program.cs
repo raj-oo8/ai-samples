@@ -10,7 +10,7 @@ using Microsoft.SemanticKernel.Plugins.Web.Bing;
 
 #pragma warning disable SKEXP0050
 
-namespace ConsoleApp
+namespace SemanticKernel.ConsoleApp
 {
     internal class Program
     {
