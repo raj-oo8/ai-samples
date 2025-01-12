@@ -20,8 +20,6 @@ namespace SemanticKernel.ConsoleApp
 {
     public class Program
     {
-        static ConfigurationModel? configurationModel;
-
         public static async Task Main()
         {
             Console.WriteLine("Starting...");
@@ -33,7 +31,7 @@ namespace SemanticKernel.ConsoleApp
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                     .AddUserSecrets<Program>();
                 IConfiguration configuration = configurationBuilder.Build();
-                configurationModel = InitializeConfiguation(configuration);
+                ConfigurationModel configurationModel = InitializeConfiguation(configuration);
 
                 // Create a kernel with Azure OpenAI chat completion
                 var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(configurationModel.OpenAIModel, configurationModel.OpenAIEndpoint, configurationModel.OpenAIKey);
@@ -57,7 +55,7 @@ namespace SemanticKernel.ConsoleApp
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
                 kernel.Plugins.Add(await CreateVectorSearchAsync(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection));
-                kernel.Plugins.Add(CreateBingSearch());
+                kernel.Plugins.Add(CreateBingSearch(configurationModel));
 
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
@@ -146,7 +144,7 @@ namespace SemanticKernel.ConsoleApp
             }
         }
 
-        static KernelPlugin CreateBingSearch()
+        static KernelPlugin CreateBingSearch(ConfigurationModel configurationModel)
         {
             // Create a text search using Bing search
             var webSearch = new BingTextSearch(configurationModel.BingKey);
