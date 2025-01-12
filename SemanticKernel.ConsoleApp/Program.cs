@@ -11,6 +11,8 @@ using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using System.ClientModel;
+using System.Reflection.Metadata.Ecma335;
 
 #pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
 
@@ -20,6 +22,8 @@ namespace SemanticKernel.ConsoleApp
     {
         public static async Task Main(string[] args)
         {
+            Console.WriteLine("Starting...");
+
             try
             {
                 var configurationBuilder = new ConfigurationBuilder()
@@ -80,7 +84,6 @@ namespace SemanticKernel.ConsoleApp
                 }
 
                 // Read lines from sample data text file
-                Console.WriteLine("Reading sample data from file...");
                 string sampleDataFilePath = "sampleData.txt";
                 string[] lines = File.ReadAllLines(sampleDataFilePath);
 
@@ -139,28 +142,39 @@ namespace SemanticKernel.ConsoleApp
                     // Add user input
                     history.AddUserMessage(userInput);
 
-                    // Get the response from the AI
-                    var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
-                        history,
-                        executionSettings: openAIPromptExecutionSettings,
-                        kernel: kernel);
-
-                    // Print the results
-                    Console.Write("Assistant > ");
-                    var response = string.Empty;
-                    await foreach (var item in result)
+                    try
                     {
-                        response += item;
-                        Console.Write(item);
+                        // Get the response from the AI
+                        var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
+                            history,
+                            executionSettings: openAIPromptExecutionSettings,
+                            kernel: kernel);
+
+                        // Print the results
+                        Console.Write("Assistant > ");
+                        var response = string.Empty;
+                        await foreach (var item in result)
+                        {
+                            response += item;
+                            Console.Write(item);
+                        }
+
+                        // Add the message from the agent to the chat history
+                        history.AddAssistantMessage(response);
+
+                        if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.ReadKey();
+                            break;
+                        }
+
                     }
-
-                    // Add the message from the agent to the chat history
-                    history.AddAssistantMessage(response);
-
-                    if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                    catch (ClientResultException clientException) when (clientException.ToString().Contains("429"))
                     {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(clientException.Message);
+                        Console.ResetColor();
                         Console.ReadKey();
-                        break;
                     }
                 }
                 while (userInput is not null);
