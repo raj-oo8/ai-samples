@@ -12,7 +12,6 @@ using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
 using System.ClientModel;
-using System.Reflection.Metadata.Ecma335;
 
 #pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
 
