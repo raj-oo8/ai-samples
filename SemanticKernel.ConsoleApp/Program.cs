@@ -61,8 +61,8 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Required(),
-                    MaxTokens = 75,
-                    ChatSystemPrompt = "Answer in one single sentence with collocations"
+                    MaxTokens = 100,
+                    ChatSystemPrompt = "You are an AI assistant that provides information based on the relevant context provided. Use the information following 'Relevant Information' to answer the user's question."
                 };
 
                 // Create a history store the conversation
@@ -97,8 +97,12 @@ namespace SemanticKernel.ConsoleApp
                     }
 
                     // Add user input
-                    history.AddUserMessage(userInput);
-                    history.AddAssistantMessage(searchResultsText);
+                    // Combine user input with search results
+                    var combinedInput = $"{userInput}\n\nRelevant Information:\n{searchResultsText}";
+
+                    // Add combined input to history
+                    history.AddUserMessage(combinedInput);
+                    Console.WriteLine(combinedInput);
 
                     try
                     {
@@ -162,11 +166,21 @@ namespace SemanticKernel.ConsoleApp
             {
                 throw new InvalidOperationException($"Sample data file '{sampleDataFilePath}' not found.");
             }
-            string[] lines = File.ReadAllLines(sampleDataFilePath);
-            string[] preprocessedLines = lines.Select(PreprocessText).ToArray();
 
-            // Generate embeddings for each line and add to the InMemory vector store.
-            var tasks = preprocessedLines.Select(async item =>
+            // Read the entire file content into a single string
+            string text = File.ReadAllText(sampleDataFilePath);
+
+            // Replace all special characters with whitespace
+            text = Regex.Replace(text, @"[^\w\s]", " ");
+
+            // Split the text into chunks based on line breaks and blank lines
+            string[] chunks = Regex.Split(text, @"(\r?\n){2,}");
+
+            // Remove any empty or whitespace-only chunks
+            chunks = chunks.Where(chunk => !string.IsNullOrWhiteSpace(chunk)).ToArray();
+
+            // Generate embeddings for each chunk and add to the vector store
+            var tasks = chunks.Select(async item =>
             {
                 ReadOnlyMemory<float> embedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(item);
 
@@ -186,19 +200,6 @@ namespace SemanticKernel.ConsoleApp
 
             // Return the search result
             return searchResult.CreateWithGetTextSearchResults("VectorSearchPlugin");
-        }
-
-        // Function to preprocess text
-        static string PreprocessText(string text)
-        {
-            // Remove special characters and extra whitespace
-            text = Regex.Replace(text, @"[^\w\s]", string.Empty);
-            text = Regex.Replace(text, @"\s+", " ");
-
-            // Convert to lowercase
-            text = text.ToLower();
-
-            return text;
         }
 
         static ConfigurationModel InitializeConfiguation(IConfiguration configuration)
