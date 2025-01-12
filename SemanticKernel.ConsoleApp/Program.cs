@@ -19,9 +19,12 @@ namespace SemanticKernel.ConsoleApp
 {
     public class Program
     {
-        public static async Task Main(string[] args)
+        static ConfigurationModel? configurationModel;
+
+        public static async Task Main()
         {
             Console.WriteLine("Starting...");
+
             try
             {
                 var configurationBuilder = new ConfigurationBuilder()
@@ -29,113 +32,36 @@ namespace SemanticKernel.ConsoleApp
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                     .AddUserSecrets<Program>();
                 IConfiguration configuration = configurationBuilder.Build();
-
-                var openAIModelId = configuration["OPENAI_MODEL"];
-                var openAIEndpoint = configuration["OPENAI_ENDPOINT"];
-                var openAIApiKey = configuration["OPENAI_KEY"];
-                var bingApiKey = configuration["BING_API_KEY"];
-                var openAIEmbedKey = configuration["OPENAI_EMBED_KEY"];
-                var openAIEmbedEndpoint = configuration["OPENAI_EMBED_ENDPOINT"];
-                var openAIEmbedModelId = configuration["OPENAI_EMBED_MODEL"];
-
-                if (string.IsNullOrWhiteSpace(openAIApiKey) ||
-                    string.IsNullOrWhiteSpace(openAIEndpoint) ||
-                    string.IsNullOrWhiteSpace(openAIModelId) ||
-                    string.IsNullOrWhiteSpace(openAIEmbedEndpoint) ||
-                    string.IsNullOrWhiteSpace(openAIEmbedKey) ||
-                    string.IsNullOrWhiteSpace(openAIEmbedModelId))
-                {
-                    Console.WriteLine("One or more configuration values are missing. Please check your user secrets.");
-                    Console.ReadKey();
-                    return;
-                }
+                configurationModel = InitializeConfiguation(configuration);
 
                 // Create a kernel with Azure OpenAI chat completion
-                var builder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(openAIModelId, openAIEndpoint, openAIApiKey);
+                var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(configurationModel.OpenAIModel, configurationModel.OpenAIEndpoint, configurationModel.OpenAIKey);
 
                 // Add enterprise components
-                builder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
+                kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
 
                 // Build the kernel
-                Kernel kernel = builder.Build();
+                Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                // Create an embedding generation service.
-                var textEmbeddingGeneration = new AzureOpenAITextEmbeddingGenerationService(
-                        deploymentName: openAIEmbedModelId,
-                        endpoint: openAIEmbedEndpoint,
-                        apiKey: openAIEmbedKey);
+                // Create an embedding generation service with the OpenAI API.
+                var azureOpenAITextEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(configurationModel.OpenAIEmbeddingModel, configurationModel.OpenAIEmbeddingEndpoint, configurationModel.OpenAIEmbeddingKey);
+                // Create an InMemory vector store.
+                var inMemoryVectorStore = new InMemoryVectorStore();
+                // Get a collection of vectors from the InMemory vector store.
+                var vectorStoreRecordCollection = inMemoryVectorStore.GetCollection<Guid, VectorModel>("VectorData");
 
-                // Construct an InMemory vector store.
-                var vectorStore = new InMemoryVectorStore();
-                var collectionName = "records";
-
-                // Delegate which will create a record.
-                static DataModel CreateRecord(string text, ReadOnlyMemory<float> embedding)
-                {
-                    return new()
-                    {
-                        Key = Guid.NewGuid(),
-                        Text = text,
-                        Embedding = embedding
-                    };
-                }
-
-                // Function to preprocess text
-                static string PreprocessText(string text)
-                {
-                    // Remove special characters and extra whitespace
-                    text = Regex.Replace(text, @"[^\w\s]", "");
-                    text = Regex.Replace(text, @"\s+", " ").Trim();
-
-                    // Convert to lowercase
-                    text = text.ToLower();
-
-                    return text;
-                }
-
-                // Read lines from sample data text file
-                string sampleDataFilePath = "sampleData.txt";
-                if (!File.Exists(sampleDataFilePath))
-                {
-                    Console.WriteLine($"Sample data file '{sampleDataFilePath}' not found.");
-                    return;
-                }
-
-                string[] lines = File.ReadAllLines(sampleDataFilePath);
-
-                // Preprocess each line
-                string[] preprocessedLines = lines.Select(PreprocessText).ToArray();
-
-                // Create a record collection from a list of strings using the provided delegate.
-                var vectorizedSearch = await CreateCollectionFromListAsync<Guid, DataModel>(
-                    vectorStore, collectionName, preprocessedLines, textEmbeddingGeneration, CreateRecord);
-
-                // Create a text search instance using the InMemory vector store.
-                var vectorSearch = new VectorStoreTextSearch<DataModel>(vectorizedSearch, textEmbeddingGeneration);
-
-                // Create a text search plugin with the InMemory vector store and add to the kernel.
-                var vectorSearchPlugin = vectorSearch.CreateWithGetTextSearchResults("VectorSearchPlugin");
-                kernel.Plugins.Add(vectorSearchPlugin);
-
+                // Add plugins
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
-
-                if (!string.IsNullOrWhiteSpace(bingApiKey))
-                {
-                    // Create a text search using Bing search
-                    var webSearch = new BingTextSearch(bingApiKey);
-
-                    // Build a text search plugin with Bing search and add to the kernel
-                    var searchPlugin = webSearch.CreateWithGetTextSearchResults("SearchPlugin");
-                    kernel.Plugins.Add(searchPlugin);
-                }
+                kernel.Plugins.Add(await CreateVectorSearchAsync(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection));
+                kernel.Plugins.Add(CreateBingSearch());
 
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Required(),
-                    MaxTokens = 100,
+                    MaxTokens = 75,
                     ChatSystemPrompt = "Answer in one single sentence with collocations"
                 };
 
@@ -158,8 +84,21 @@ namespace SemanticKernel.ConsoleApp
                         continue;
                     }
 
+                    // Generate embedding for the user input
+                    var userInputEmbedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(userInput);
+                    // Perform vector search using the generated embedding
+                    var searchResult = await vectorStoreRecordCollection.VectorizedSearchAsync(userInputEmbedding);
+
+                    // Stringify the search results
+                    var searchResultsText = string.Empty;
+                    await foreach (var record in searchResult.Results)
+                    {
+                        searchResultsText += record.Record.Text;
+                    }
+
                     // Add user input
                     history.AddUserMessage(userInput);
+                    history.AddAssistantMessage(searchResultsText);
 
                     // Get the response from the AI
                     var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
@@ -195,32 +134,106 @@ namespace SemanticKernel.ConsoleApp
             }
         }
 
-        internal delegate TRecord CreateRecord<TKey, TRecord>(string text, ReadOnlyMemory<float> vector) where TKey : notnull;
-
-        internal static async Task<IVectorStoreRecordCollection<TKey, TRecord>> CreateCollectionFromListAsync<TKey, TRecord>(
-            IVectorStore vectorStore,
-            string collectionName,
-            string[] entries,
-            ITextEmbeddingGenerationService embeddingGenerationService,
-            CreateRecord<TKey, TRecord> createRecord)
-        where TKey : notnull
+        static KernelPlugin CreateBingSearch()
         {
-            // Get and create collection if it doesn't exist.
-            var collection = vectorStore.GetCollection<TKey, TRecord>(collectionName);
-            await collection.CreateCollectionIfNotExistsAsync().ConfigureAwait(false);
+            // Create a text search using Bing search
+            var webSearch = new BingTextSearch(configurationModel.BingKey);
 
-            // Create records and generate embeddings for them.
-            var tasks = entries.Select(entry => Task.Run(async () =>
-            {
-                var record = createRecord(entry, await embeddingGenerationService.GenerateEmbeddingAsync(entry).ConfigureAwait(false));
-                await collection.UpsertAsync(record).ConfigureAwait(false);
-            }));
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-
-            return collection;
+            // Build a text search plugin with Bing search and add to the kernel
+            return webSearch.CreateWithSearch("SearchPlugin");
         }
 
-        private sealed class DataModel
+        static async Task<KernelPlugin> CreateVectorSearchAsync
+            (AzureOpenAITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService,
+            IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
+        {
+            string sampleDataFilePath = "sampleData.txt";
+            if (!File.Exists(sampleDataFilePath))
+            {
+                throw new InvalidOperationException($"Sample data file '{sampleDataFilePath}' not found.");
+            }
+            string[] lines = File.ReadAllLines(sampleDataFilePath);
+            string[] preprocessedLines = lines.Select(PreprocessText).ToArray();
+
+            // Generate embeddings for each line and add to the InMemory vector store.
+            foreach (var item in preprocessedLines)
+            {
+                ReadOnlyMemory<float> embedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(item);
+
+                // Create a record and upsert with the already generated embedding.
+                await vectorStoreRecordCollection.UpsertAsync(new VectorModel
+                {
+                    Key = Guid.NewGuid(),
+                    Text = item,
+                    Embedding = embedding
+                });       
+            }
+
+            // Create a text search plugin with the InMemory vector store and add to the kernel.
+            var searchResult = new VectorStoreTextSearch<VectorModel>(vectorStoreRecordCollection, azureOpenAITextEmbeddingGenerationService);
+
+            // Return the search result
+            return searchResult.CreateWithGetTextSearchResults("VectorSearchPlugin");
+        }
+
+        // Function to preprocess text
+        static string PreprocessText(string text)
+        {
+            // Remove special characters and extra whitespace
+            text = Regex.Replace(text, @"[^\w\s]", string.Empty);
+            text = Regex.Replace(text, @"\s+", " ");
+
+            // Convert to lowercase
+            text = text.ToLower();
+
+            return text;
+        }
+
+        static ConfigurationModel InitializeConfiguation(IConfiguration configuration)
+        {
+            var openAIModelId = configuration["OPENAI_MODEL"];
+            var openAIEndpoint = configuration["OPENAI_ENDPOINT"];
+            var openAIKey = configuration["OPENAI_KEY"];
+            var bingKey = configuration["BING_KEY"];
+            var openAIEmbeddingKey = configuration["OPENAI_EMBEDDING_KEY"];
+            var openAIEmbeddingEndpoint = configuration["OPENAI_EMBEDDING_ENDPOINT"];
+            var openAIEmbeddingModel = configuration["OPENAI_EMBEDDING_MODEL"];
+
+            if (string.IsNullOrWhiteSpace(openAIKey) ||
+                string.IsNullOrWhiteSpace(openAIEndpoint) ||
+                string.IsNullOrWhiteSpace(openAIModelId) ||
+                string.IsNullOrWhiteSpace(openAIEmbeddingEndpoint) ||
+                string.IsNullOrWhiteSpace(bingKey) ||
+                string.IsNullOrWhiteSpace(openAIEmbeddingKey) ||
+                string.IsNullOrWhiteSpace(openAIEmbeddingModel))
+            {
+                throw new InvalidOperationException("One or more configuration values are missing. Please check your user secrets.");
+            }
+
+            return new ConfigurationModel
+            {
+                OpenAIModel = openAIModelId,
+                OpenAIEndpoint = openAIEndpoint,
+                OpenAIKey = openAIKey,
+                OpenAIEmbeddingModel = openAIEmbeddingModel,
+                OpenAIEmbeddingEndpoint = openAIEmbeddingEndpoint,
+                OpenAIEmbeddingKey = openAIEmbeddingKey,
+                BingKey = bingKey
+            };
+        }
+
+        class ConfigurationModel
+        {
+            public required string OpenAIModel { get; init; }
+            public required string OpenAIEndpoint { get; init; }
+            public required string OpenAIKey { get; init; }
+            public required string OpenAIEmbeddingModel { get; init; }
+            public required string OpenAIEmbeddingEndpoint { get; init; }
+            public required string OpenAIEmbeddingKey { get; init; }
+            public required string BingKey { get; init; }
+        }
+
+        class VectorModel
         {
             [VectorStoreRecordKey]
             [TextSearchResultName]
