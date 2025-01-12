@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/Console/bin/Debug/net9.0/Console.dll",
+            "program": "${workspaceFolder}/SemanticKernel.ConsoleApp/bin/Debug/net9.0/SemanticKernel.ConsoleApp.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/Console",
+            "cwd": "${workspaceFolder}/SemanticKernel.ConsoleApp",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
