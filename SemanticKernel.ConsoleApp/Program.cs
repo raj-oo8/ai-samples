@@ -58,16 +58,6 @@ namespace SemanticKernel.ConsoleApp
                 Kernel kernel = builder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                if (!string.IsNullOrWhiteSpace(bingApiKey))
-                {
-                    // Create a text search using Bing search
-                    var webSearch = new BingTextSearch(bingApiKey);
-
-                    // Build a text search plugin with Bing search and add to the kernel
-                    var searchPlugin = webSearch.CreateWithSearch("SearchPlugin");
-                    kernel.Plugins.Add(searchPlugin);
-                }
-
                 // Create an embedding generation service.
                 var textEmbeddingGeneration = new AzureOpenAITextEmbeddingGenerationService(
                         deploymentName: openAIEmbedModelId,
@@ -108,6 +98,16 @@ namespace SemanticKernel.ConsoleApp
                 // Add a plugin (the LightsPlugin class is defined below)
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
+
+                if (!string.IsNullOrWhiteSpace(bingApiKey))
+                {
+                    // Create a text search using Bing search
+                    var webSearch = new BingTextSearch(bingApiKey);
+
+                    // Build a text search plugin with Bing search and add to the kernel
+                    var searchPlugin = webSearch.CreateWithSearch("SearchPlugin");
+                    kernel.Plugins.Add(searchPlugin);
+                }
 
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
