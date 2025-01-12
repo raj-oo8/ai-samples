@@ -1,2 +1,12 @@
-# ai-samples
-AI Samples
+# AI Samples
+
+This repository contains sample projects covering various AI (Artificial Intelligence) topics to demonstrate different features and functionalities.
+
+## Topics Covered
+
+- Semantic Kernel
+- Function Calling
+- Vector Store
+- Embeddings
+- OpenAI Plugins
+- Bing Web Search
