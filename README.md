@@ -5,6 +5,7 @@ This repository contains sample projects covering various AI (Artificial Intelli
 ## Topics Covered
 
 - Semantic Kernel
+- Chat Completions
 - Function Calling
 - Vector Store
 - Embeddings
