@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿// Import packages
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.VectorData;
@@ -33,13 +34,13 @@ namespace SemanticKernel.ConsoleApp
                 IConfiguration configuration = configurationBuilder.Build();
                 ConfigurationModel configurationModel = InitializeConfiguation(configuration);
 
-                // Create a kernel with Azure OpenAI chat completion
+                // Create a kernel with AI services
                 var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(configurationModel.OpenAIModel, configurationModel.OpenAIEndpoint, configurationModel.OpenAIKey);
 
                 // Add enterprise components
                 kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
 
-                // Build the kernel
+                // Build the kernel and retrieve services
                 Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
@@ -51,11 +52,11 @@ namespace SemanticKernel.ConsoleApp
                 var vectorStoreRecordCollection = inMemoryVectorStore.GetCollection<Guid, VectorModel>("VectorData");
                 await vectorStoreRecordCollection.CreateCollectionIfNotExistsAsync().ConfigureAwait(false);
 
-                // Add plugins
+                // Add the plugin to the kernel
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
-                kernel.Plugins.Add(await CreateVectorSearchAsync(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection));
-                kernel.Plugins.Add(CreateBingSearch(configurationModel));
+                kernel.Plugins.Add(await CreateVectorSearchPluginAsync(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection));
+                kernel.Plugins.Add(CreateBingSearchPlugin(configurationModel));
 
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
@@ -84,7 +85,7 @@ namespace SemanticKernel.ConsoleApp
                         continue;
                     }
 
-                    // Add combined input to history
+                    // Add user input to history
                     history.AddUserMessage(userInput);
 
                     try
@@ -131,7 +132,8 @@ namespace SemanticKernel.ConsoleApp
             }
         }
 
-        static KernelPlugin CreateBingSearch(ConfigurationModel configurationModel)
+        // Create a plugin for Bing search
+        static KernelPlugin CreateBingSearchPlugin(ConfigurationModel configurationModel)
         {
             // Create a text search using Bing search
             var webSearch = new BingTextSearch(configurationModel.BingKey);
@@ -140,7 +142,8 @@ namespace SemanticKernel.ConsoleApp
             return webSearch.CreateWithGetTextSearchResults("InternetSearch", "Search internet for News, Information, Weather, Finance etc.");
         }
 
-        static async Task<KernelPlugin> CreateVectorSearchAsync
+        // Create a plugin for vector search
+        static async Task<KernelPlugin> CreateVectorSearchPluginAsync
             (AzureOpenAITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService,
             IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
         {
