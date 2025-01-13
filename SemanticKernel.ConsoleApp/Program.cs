@@ -12,6 +12,7 @@ using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using SemanticKernel.ConsoleApp.Models;
 using System.ClientModel;
 using System.Text.RegularExpressions;
 
@@ -19,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace SemanticKernel.ConsoleApp
 {
-    public class Program
+    public partial class Program
     {
         public static async Task Main()
         {
@@ -147,7 +148,7 @@ namespace SemanticKernel.ConsoleApp
             (AzureOpenAITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService,
             IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
         {
-            string sampleDataFilePath = "sampleData.txt";
+            string sampleDataFilePath = "Data\\CallTranscripts.txt";
             if (!File.Exists(sampleDataFilePath))
             {
                 throw new InvalidOperationException($"Sample data file '{sampleDataFilePath}' not found.");
@@ -219,31 +220,6 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIEmbeddingKey = openAIEmbeddingKey,
                 BingKey = bingKey
             };
-        }
-
-        class ConfigurationModel
-        {
-            public required string OpenAIModel { get; init; }
-            public required string OpenAIEndpoint { get; init; }
-            public required string OpenAIKey { get; init; }
-            public required string OpenAIEmbeddingModel { get; init; }
-            public required string OpenAIEmbeddingEndpoint { get; init; }
-            public required string OpenAIEmbeddingKey { get; init; }
-            public required string BingKey { get; init; }
-        }
-
-        class VectorModel
-        {
-            [VectorStoreRecordKey]
-            [TextSearchResultName]
-            public Guid Key { get; init; }
-
-            [VectorStoreRecordData]
-            [TextSearchResultValue]
-            public required string Text { get; init; }
-
-            [VectorStoreRecordVector(3072)]
-            public ReadOnlyMemory<float> Embedding { get; init; }
         }
     }
 }
