@@ -43,7 +43,7 @@ namespace SemanticKernel.ConsoleApp
                 Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                // Add the plugin to the kernel
+                // Add the plugins to the kernel
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
                 kernel.Plugins.Add(await CreateVectorStorePluginAsync(configurationModel));

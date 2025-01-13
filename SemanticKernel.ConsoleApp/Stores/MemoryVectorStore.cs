@@ -11,8 +11,14 @@ using System.Text.RegularExpressions;
 
 namespace SemanticKernel.ConsoleApp.Stores
 {
-    class MemoryVectorStore
+    partial class MemoryVectorStore
     {
+        [GeneratedRegex(@"[^\w\s]")]
+        private static partial Regex SpecialCharactersRegex();
+
+        [GeneratedRegex(@"(\r?\n){2,}")]
+        private static partial Regex LineBreaksRegex();
+
         internal async static Task<VectorStoreTextSearch<VectorModel>> GetTextSearchAsync(ConfigurationModel configurationModel)
         {            
             // Create an InMemory vector store.
@@ -51,10 +57,10 @@ namespace SemanticKernel.ConsoleApp.Stores
             string text = File.ReadAllText(sampleDataFilePath);
 
             // Replace all special characters with whitespace
-            text = Regex.Replace(text, @"[^\w\s]", " ");
+            text = SpecialCharactersRegex().Replace(text, " ");
 
             // Split the text into chunks based on line breaks and blank lines
-            string[] chunks = Regex.Split(text, @"(\r?\n){2,}");
+            string[] chunks = LineBreaksRegex().Split(text);
 
             // Remove any empty or whitespace-only chunks
             chunks = chunks.Where(chunk => !string.IsNullOrWhiteSpace(chunk)).ToArray();
