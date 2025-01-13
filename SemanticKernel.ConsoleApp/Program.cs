@@ -60,9 +60,9 @@ namespace SemanticKernel.ConsoleApp
                 // Enable planning
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Required(),
-                    MaxTokens = 100,
-                    ChatSystemPrompt = "You are an AI assistant that provides information based on the relevant context provided. Use the information following 'Relevant Information' to answer the user's question."
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                    MaxTokens = 75,
+                    ChatSystemPrompt = "You are assistant providing info in a single sentence for relevant context provided."
                 };
 
                 // Create a history store the conversation
@@ -84,25 +84,8 @@ namespace SemanticKernel.ConsoleApp
                         continue;
                     }
 
-                    // Generate embedding for the user input
-                    var userInputEmbedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(userInput);
-                    // Perform vector search using the generated embedding
-                    var searchResult = await vectorStoreRecordCollection.VectorizedSearchAsync(userInputEmbedding);
-
-                    // Stringify the search results
-                    var searchResultsText = string.Empty;
-                    await foreach (var record in searchResult.Results)
-                    {
-                        searchResultsText += record.Record.Text;
-                    }
-
-                    // Add user input
-                    // Combine user input with search results
-                    var combinedInput = $"{userInput}\n\nRelevant Information:\n{searchResultsText}";
-
                     // Add combined input to history
-                    history.AddUserMessage(combinedInput);
-                    Console.WriteLine(combinedInput);
+                    history.AddUserMessage(userInput);
 
                     try
                     {
@@ -154,7 +137,7 @@ namespace SemanticKernel.ConsoleApp
             var webSearch = new BingTextSearch(configurationModel.BingKey);
 
             // Build a text search plugin with Bing search and add to the kernel
-            return webSearch.CreateWithGetTextSearchResults("SearchPlugin");
+            return webSearch.CreateWithGetTextSearchResults("InternetSearch", "Search internet for News, Information, Weather, Finance etc.");
         }
 
         static async Task<KernelPlugin> CreateVectorSearchAsync
@@ -199,7 +182,7 @@ namespace SemanticKernel.ConsoleApp
             var searchResult = new VectorStoreTextSearch<VectorModel>(vectorStoreRecordCollection, azureOpenAITextEmbeddingGenerationService);
 
             // Return the search result
-            return searchResult.CreateWithGetTextSearchResults("VectorSearchPlugin");
+            return searchResult.CreateWithGetTextSearchResults("EcoGroceries", "Call center transcripts from EcoGroceries by multiple agents with multiple customers.");
         }
 
         static ConfigurationModel InitializeConfiguation(IConfiguration configuration)
