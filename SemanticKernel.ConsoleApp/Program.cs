@@ -61,7 +61,7 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
                 {
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                    MaxTokens = 75,
+                    MaxTokens = 200,
                     ChatSystemPrompt = "You are assistant providing info in a single sentence for relevant context provided."
                 };
 
