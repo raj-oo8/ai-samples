@@ -1,22 +1,17 @@
-﻿// Import packages
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Data;
-using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using SemanticKernel.ConsoleApp.Jobs;
 using SemanticKernel.ConsoleApp.Models;
 using System.ClientModel;
-using System.Text.RegularExpressions;
 
-#pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
+#pragma warning disable SKEXP0050
 
 namespace SemanticKernel.ConsoleApp
 {
@@ -45,18 +40,10 @@ namespace SemanticKernel.ConsoleApp
                 Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                // Create an embedding generation service with the OpenAI API.
-                var azureOpenAITextEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(configurationModel.OpenAIEmbeddingModel, configurationModel.OpenAIEmbeddingEndpoint, configurationModel.OpenAIEmbeddingKey);
-                // Create an InMemory vector store.
-                var inMemoryVectorStore = new InMemoryVectorStore();
-                // Get a collection of vectors from the InMemory vector store.
-                var vectorStoreRecordCollection = inMemoryVectorStore.GetCollection<Guid, VectorModel>("VectorData");
-                await vectorStoreRecordCollection.CreateCollectionIfNotExistsAsync().ConfigureAwait(false);
-
                 // Add the plugin to the kernel
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
-                kernel.Plugins.Add(await CreateVectorSearchPluginAsync(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection));
+                kernel.Plugins.Add(await CreateVectorStorePluginAsync(configurationModel));
                 kernel.Plugins.Add(CreateBingSearchPlugin(configurationModel));
 
                 // Enable planning
@@ -143,50 +130,13 @@ namespace SemanticKernel.ConsoleApp
             return webSearch.CreateWithGetTextSearchResults("InternetSearch", "Search internet for News, Information, Weather, Finance etc.");
         }
 
-        // Create a plugin for vector search
-        static async Task<KernelPlugin> CreateVectorSearchPluginAsync
-            (AzureOpenAITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService,
-            IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
+        static async Task<KernelPlugin> CreateVectorStorePluginAsync(ConfigurationModel configurationModel)
         {
-            string sampleDataFilePath = "Data\\CallTranscripts.txt";
-            if (!File.Exists(sampleDataFilePath))
-            {
-                throw new InvalidOperationException($"Sample data file '{sampleDataFilePath}' not found.");
-            }
+            // Create and add embeddings to the vector store
+            var vectorSearch = await EmbeddingsJobs.CreateAndAddEmbeddingstoVectorStoreAsync(configurationModel);
 
-            // Read the entire file content into a single string
-            string text = File.ReadAllText(sampleDataFilePath);
-
-            // Replace all special characters with whitespace
-            text = Regex.Replace(text, @"[^\w\s]", " ");
-
-            // Split the text into chunks based on line breaks and blank lines
-            string[] chunks = Regex.Split(text, @"(\r?\n){2,}");
-
-            // Remove any empty or whitespace-only chunks
-            chunks = chunks.Where(chunk => !string.IsNullOrWhiteSpace(chunk)).ToArray();
-
-            // Generate embeddings for each chunk and add to the vector store
-            var tasks = chunks.Select(async item =>
-            {
-                ReadOnlyMemory<float> embedding = await azureOpenAITextEmbeddingGenerationService.GenerateEmbeddingAsync(item);
-
-                // Create a record and upsert with the already generated embedding.
-                await vectorStoreRecordCollection.UpsertAsync(new VectorModel
-                {
-                    Key = Guid.NewGuid(),
-                    Text = item,
-                    Embedding = embedding
-                });
-            });
-
-            await Task.WhenAll(tasks);
-
-            // Create a text search plugin with the InMemory vector store and add to the kernel.
-            var searchResult = new VectorStoreTextSearch<VectorModel>(vectorStoreRecordCollection, azureOpenAITextEmbeddingGenerationService);
-
-            // Return the search result
-            return searchResult.CreateWithGetTextSearchResults("EcoGroceries", "Call center transcripts from EcoGroceries by multiple agents with multiple customers.");
+            // Create a vector store plugin with the InMemory vector store and add to the kernel
+            return vectorSearch.CreateWithGetTextSearchResults("EcoGroceries", "Call center transcripts from EcoGroceries by multiple agents with multiple customers.");
         }
 
         static ConfigurationModel InitializeConfiguation(IConfiguration configuration)

@@ -1,8 +1,7 @@
-﻿// Import packages
-using Microsoft.Extensions.VectorData;
+﻿using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Data;
 
-#pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
+#pragma warning disable SKEXP0001
 
 namespace SemanticKernel.ConsoleApp.Models
 {
