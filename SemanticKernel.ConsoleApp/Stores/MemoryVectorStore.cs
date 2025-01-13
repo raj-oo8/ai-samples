@@ -1,4 +1,6 @@
-﻿using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
+﻿using Microsoft.Extensions.AI;
+using Microsoft.Extensions.VectorData;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
@@ -7,15 +9,12 @@ using System.Text.RegularExpressions;
 
 #pragma warning disable SKEXP0010, SKEXP0001
 
-namespace SemanticKernel.ConsoleApp.Jobs
+namespace SemanticKernel.ConsoleApp.Stores
 {
-    class EmbeddingsJobs
+    class MemoryVectorStore
     {
-        internal async static Task<VectorStoreTextSearch<VectorModel>> CreateAndAddEmbeddingstoVectorStoreAsync(ConfigurationModel configurationModel)
-        {
-            // Create an embedding generation service with the OpenAI API.
-            var azureOpenAITextEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(configurationModel.OpenAIEmbeddingModel, configurationModel.OpenAIEmbeddingEndpoint, configurationModel.OpenAIEmbeddingKey);
-            
+        internal async static Task<VectorStoreTextSearch<VectorModel>> GetTextSearchAsync(ConfigurationModel configurationModel)
+        {            
             // Create an InMemory vector store.
             var inMemoryVectorStore = new InMemoryVectorStore();
             
@@ -23,6 +22,25 @@ namespace SemanticKernel.ConsoleApp.Jobs
             var vectorStoreRecordCollection = inMemoryVectorStore.GetCollection<Guid, VectorModel>("VectorData");
             await vectorStoreRecordCollection.CreateCollectionIfNotExistsAsync().ConfigureAwait(false);
 
+            // Create an embedding generation service with the OpenAI API.
+            var azureOpenAITextEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(
+                configurationModel.OpenAIEmbeddingModel,
+                configurationModel.OpenAIEmbeddingEndpoint,
+                configurationModel.OpenAIEmbeddingKey);
+
+            await GenerateEmbeddings(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection);
+
+            // Create a text search plugin with the InMemory vector store and add to the kernel.
+            var searchResult = new VectorStoreTextSearch<VectorModel>(
+                vectorStoreRecordCollection, 
+                azureOpenAITextEmbeddingGenerationService);
+            return searchResult;
+        }
+
+        static async Task<IVectorStoreRecordCollection<Guid, VectorModel>> GenerateEmbeddings( 
+            AzureOpenAITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService,
+            IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
+        {
             string sampleDataFilePath = "Data\\CallTranscripts.txt";
             if (!File.Exists(sampleDataFilePath))
             {
@@ -57,9 +75,7 @@ namespace SemanticKernel.ConsoleApp.Jobs
 
             await Task.WhenAll(tasks);
 
-            // Create a text search plugin with the InMemory vector store and add to the kernel.
-            var searchResult = new VectorStoreTextSearch<VectorModel>(vectorStoreRecordCollection, azureOpenAITextEmbeddingGenerationService);
-            return searchResult;
+            return vectorStoreRecordCollection;
         }
     }
 }

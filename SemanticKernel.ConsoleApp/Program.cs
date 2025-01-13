@@ -7,8 +7,8 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Plugins.Core;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
-using SemanticKernel.ConsoleApp.Jobs;
 using SemanticKernel.ConsoleApp.Models;
+using SemanticKernel.ConsoleApp.Stores;
 using System.ClientModel;
 
 #pragma warning disable SKEXP0050
@@ -31,7 +31,10 @@ namespace SemanticKernel.ConsoleApp
                 ConfigurationModel configurationModel = InitializeConfiguation(configuration);
 
                 // Create a kernel with AI services
-                var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(configurationModel.OpenAIModel, configurationModel.OpenAIEndpoint, configurationModel.OpenAIKey);
+                var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+                    configurationModel.OpenAIModel, 
+                    configurationModel.OpenAIEndpoint, 
+                    configurationModel.OpenAIKey);
 
                 // Add enterprise components
                 kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
@@ -133,7 +136,7 @@ namespace SemanticKernel.ConsoleApp
         static async Task<KernelPlugin> CreateVectorStorePluginAsync(ConfigurationModel configurationModel)
         {
             // Create and add embeddings to the vector store
-            var vectorSearch = await EmbeddingsJobs.CreateAndAddEmbeddingstoVectorStoreAsync(configurationModel);
+            var vectorSearch = await MemoryVectorStore.GetTextSearchAsync(configurationModel);
 
             // Create a vector store plugin with the InMemory vector store and add to the kernel
             return vectorSearch.CreateWithGetTextSearchResults("EcoGroceries", "Call center transcripts from EcoGroceries by multiple agents with multiple customers.");
