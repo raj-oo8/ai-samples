@@ -8,6 +8,8 @@ This repository contains sample projects covering various AI (Artificial Intelli
 - Chat Completions
 - Function Calling
 - Vector Store
+- Vector Search
+- Full Text Search
 - Embeddings
 - OpenAI Plugins
 - Bing Web Search
