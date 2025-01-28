@@ -2,6 +2,7 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Data;
+using Microsoft.SemanticKernel.Embeddings;
 using SemanticKernel.ConsoleApp.Models;
 
 #pragma warning disable SKEXP0010, SKEXP0001
@@ -10,11 +11,11 @@ namespace SemanticKernel.ConsoleApp.Plugins
 {
     class FullTextSearchPlugin
     {
-        readonly AzureOpenAITextEmbeddingGenerationService _embeddingService;
+        readonly ITextEmbeddingGenerationService _embeddingService;
         readonly IVectorStoreRecordCollection<Guid, VectorModel> _vectorStoreRecordCollection;
 
         internal FullTextSearchPlugin(
-            AzureOpenAITextEmbeddingGenerationService embeddingService, 
+            ITextEmbeddingGenerationService embeddingService, 
             IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
         {
             _embeddingService = embeddingService;

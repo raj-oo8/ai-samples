@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.VectorData;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Embeddings;
 using SemanticKernel.ConsoleApp.Models;
 using System.Text.RegularExpressions;
@@ -16,10 +15,10 @@ namespace SemanticKernel.ConsoleApp.Jobs
         [GeneratedRegex(@"(\r?\n){2,}")]
         private static partial Regex LineBreaksRegex();
 
-        readonly AzureOpenAITextEmbeddingGenerationService _embeddingService;
+        readonly IEmbeddingGenerationService<string, float> _embeddingService;
         readonly IVectorStoreRecordCollection<Guid, VectorModel> _vectorStoreRecordCollection;
 
-        internal EmbeddingsJob(AzureOpenAITextEmbeddingGenerationService embeddingService,
+        internal EmbeddingsJob(IEmbeddingGenerationService<string, float> embeddingService,
             IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
         {
             _embeddingService = embeddingService;

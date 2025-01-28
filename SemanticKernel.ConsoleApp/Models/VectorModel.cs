@@ -5,7 +5,7 @@ using Microsoft.SemanticKernel.Data;
 
 namespace SemanticKernel.ConsoleApp.Models
 {
-    class VectorModel
+    public class VectorModel
     {
         [VectorStoreRecordKey]
         [TextSearchResultName]
