@@ -50,13 +50,13 @@ namespace SemanticKernel.ConsoleApp
                 // Add enterprise components
                 kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
 
-                // Initialize embedding services
-                //var (azureOpenAITextEmbeddingGenerationService, textVectorStoreRecordCollection) = await InitializeTextEmbeddingServices(configurationModel);
-                var (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection) = await InitializeVectorEmbeddingServices(configurationModel);
-
                 // Build the kernel and retrieve services
                 Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
+
+                // Initialize embedding services
+                //var (azureOpenAITextEmbeddingGenerationService, textVectorStoreRecordCollection) = await InitializeTextEmbeddingServices(configurationModel);
+                var (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection) = await InitializeVectorEmbeddingServices(configurationModel);
 
                 // Add the plugins to the kernel
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
