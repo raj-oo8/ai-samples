@@ -1,5 +1,4 @@
-﻿using Azure;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.VectorData;
@@ -7,7 +6,6 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Data;
 using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Core;
@@ -16,9 +14,8 @@ using SemanticKernel.ConsoleApp.Jobs;
 using SemanticKernel.ConsoleApp.Models;
 using SemanticKernel.ConsoleApp.Plugins;
 using System.ClientModel;
-using System.Net.Sockets;
 
-#pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
+#pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001, SKEXP0070
 
 namespace SemanticKernel.ConsoleApp
 {
@@ -38,10 +35,17 @@ namespace SemanticKernel.ConsoleApp
                 ConfigurationModel configurationModel = InitializeConfiguation(configuration);
 
                 // Create a kernel with AI services
-                var kernelBuilder = Kernel.CreateBuilder().AddAzureOpenAIChatCompletion(
+                var kernelBuilder = Kernel.CreateBuilder();
+
+                kernelBuilder.Services.AddAzureOpenAIChatCompletion(
                     configurationModel.OpenAIModel,
                     configurationModel.OpenAIEndpoint,
                     configurationModel.OpenAIKey);
+
+                //kernelBuilder.AddAzureAIInferenceChatCompletion(
+                //    configurationModel.AzureAIInferenceModel,
+                //    endpoint: new Uri(configurationModel.AzureAIInferenceEndpoint),
+                //    apiKey: configurationModel.AzureAIInferenceKey);
 
                 // Add enterprise components
                 kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
@@ -71,7 +75,7 @@ namespace SemanticKernel.ConsoleApp
                 kernel.Plugins.Add(CreateBingSearchPlugin(configurationModel));
 
                 // Enable planning
-                OpenAIPromptExecutionSettings openAIPromptExecutionSettings = new()
+                AzureOpenAIPromptExecutionSettings promptExecutionSettings = new()
                 {
                     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
                     MaxTokens = 200,
@@ -105,7 +109,7 @@ namespace SemanticKernel.ConsoleApp
                         // Get the response from the AI
                         var result = chatCompletionService.GetStreamingChatMessageContentsAsync(
                             history,
-                            executionSettings: openAIPromptExecutionSettings,
+                            executionSettings: promptExecutionSettings,
                             kernel: kernel);
 
                         // Print the results
@@ -166,6 +170,9 @@ namespace SemanticKernel.ConsoleApp
             var openAIEmbeddingModel = configuration["OPENAI_EMBEDDING_MODEL"];
             var azureAISearchEndpoint = configuration["AZUREAI_SEARCH_ENDPOINT"];
             var azureAISearchKey = configuration["AZUREAI_SEARCH_KEY"];
+            var azureAIInferenceKey = configuration["AZUREAI_INFERENCE_KEY"];
+            var azureAIInferenceEndpoint = configuration["AZUREAI_INFERENCE_ENDPOINT"];
+            var azureAIInferenceModel = configuration["AZUREAI_INFERENCE_MODEL"];
 
             if (string.IsNullOrWhiteSpace(openAIKey) ||
                 string.IsNullOrWhiteSpace(openAIEndpoint) ||
@@ -175,6 +182,9 @@ namespace SemanticKernel.ConsoleApp
                 string.IsNullOrWhiteSpace(openAIEmbeddingKey) ||
                 string.IsNullOrWhiteSpace(openAIEmbeddingModel) ||
                 string.IsNullOrWhiteSpace(azureAISearchEndpoint) ||
+                string.IsNullOrWhiteSpace(azureAIInferenceKey) ||
+                string.IsNullOrWhiteSpace(azureAIInferenceEndpoint) ||
+                string.IsNullOrWhiteSpace(azureAIInferenceModel) ||
                 string.IsNullOrWhiteSpace(azureAISearchKey))
             {
                 throw new InvalidOperationException("One or more configuration values are missing. Please check your user secrets.");
@@ -190,7 +200,10 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIEmbeddingKey = openAIEmbeddingKey,
                 BingKey = bingKey,
                 AzureAISearchEndpoint = azureAISearchEndpoint,
-                AzureAISearchKey = azureAISearchKey
+                AzureAISearchKey = azureAISearchKey,
+                AzureAIInferenceKey = azureAIInferenceKey,
+                AzureAIInferenceEndpoint = azureAIInferenceEndpoint,
+                AzureAIInferenceModel = azureAIInferenceModel
             };
         }
 
