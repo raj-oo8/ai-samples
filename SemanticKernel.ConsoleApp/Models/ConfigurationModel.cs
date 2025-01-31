@@ -9,5 +9,8 @@
         internal required string OpenAIEmbeddingEndpoint { get; init; }
         internal required string OpenAIEmbeddingKey { get; init; }
         internal required string BingKey { get; init; }
+
+        internal required string AzureAISearchKey { get; init; }
+        internal required string AzureAISearchEndpoint { get; init; }
     }
 }

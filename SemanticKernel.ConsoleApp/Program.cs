@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Azure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.VectorData;
@@ -15,6 +16,7 @@ using SemanticKernel.ConsoleApp.Jobs;
 using SemanticKernel.ConsoleApp.Models;
 using SemanticKernel.ConsoleApp.Plugins;
 using System.ClientModel;
+using System.Net.Sockets;
 
 #pragma warning disable SKEXP0050, SKEXP0010, SKEXP0001
 
@@ -45,15 +47,8 @@ namespace SemanticKernel.ConsoleApp
                 kernelBuilder.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Error));
 
                 // Initialize embedding services
-                var (azureOpenAITextEmbeddingGenerationService, textVectorStoreRecordCollection) = await InitializeTextEmbeddingServices(configurationModel);
-                //var (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection) = await InitializeVectorEmbeddingServices(configurationModel);
-
-                // Add services to the kernel builder
-                kernelBuilder.Services.AddSingleton(azureOpenAITextEmbeddingGenerationService);
-                kernelBuilder.Services.AddSingleton(textVectorStoreRecordCollection);
-                //kernelBuilder.Services.AddSingleton(vectorStoreRecordCollection);
-                //kernelBuilder.Services.AddSingleton(azureOpenAIVectorEmbeddingGenerationService);
-                //kernelBuilder.Services.AddSingleton<VectorSearchPlugin>();
+                //var (azureOpenAITextEmbeddingGenerationService, textVectorStoreRecordCollection) = await InitializeTextEmbeddingServices(configurationModel);
+                var (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection) = await InitializeVectorEmbeddingServices(configurationModel);
 
                 // Build the kernel and retrieve services
                 Kernel kernel = kernelBuilder.Build();
@@ -63,12 +58,15 @@ namespace SemanticKernel.ConsoleApp
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
 
-                var fullTextSearchPlugin = new FullTextSearchPlugin(
-                    azureOpenAITextEmbeddingGenerationService,
-                    textVectorStoreRecordCollection);
-                kernel.Plugins.Add(fullTextSearchPlugin.GetTextSearchAsync());
+                //var fullTextSearchPlugin = new FullTextSearchPlugin(
+                //    azureOpenAITextEmbeddingGenerationService,
+                //    textVectorStoreRecordCollection);
+                //kernel.Plugins.Add(fullTextSearchPlugin.GetTextSearchAsync());
 
-                //kernel.Plugins.AddFromType<VectorSearchPlugin>("EcoGroceries");
+                var vectorSearchPlugin = new VectorSearchPlugin(
+                    azureOpenAIVectorEmbeddingGenerationService,
+                    vectorStoreRecordCollection);
+                kernel.Plugins.AddFromObject(vectorSearchPlugin);
 
                 kernel.Plugins.Add(CreateBingSearchPlugin(configurationModel));
 
@@ -109,8 +107,6 @@ namespace SemanticKernel.ConsoleApp
                             history,
                             executionSettings: openAIPromptExecutionSettings,
                             kernel: kernel);
-                        // Get the response from the Vectors
-                        //var vectorSearchPlugin = new VectorSearchPlugin(azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection);
 
                         // Print the results
                         Console.Write("Assistant > ");
@@ -121,8 +117,6 @@ namespace SemanticKernel.ConsoleApp
                             response += item;
                             Console.Write(item);
                         }
-                        //response = await vectorSearchPlugin.SearchAsync(userInput);
-                        //Console.Write(response);
 
                         // Add the message from the agent to the chat history
                         history.AddAssistantMessage(response);
@@ -170,6 +164,8 @@ namespace SemanticKernel.ConsoleApp
             var openAIEmbeddingKey = configuration["OPENAI_EMBEDDING_KEY"];
             var openAIEmbeddingEndpoint = configuration["OPENAI_EMBEDDING_ENDPOINT"];
             var openAIEmbeddingModel = configuration["OPENAI_EMBEDDING_MODEL"];
+            var azureAISearchEndpoint = configuration["AZUREAI_SEARCH_ENDPOINT"];
+            var azureAISearchKey = configuration["AZUREAI_SEARCH_KEY"];
 
             if (string.IsNullOrWhiteSpace(openAIKey) ||
                 string.IsNullOrWhiteSpace(openAIEndpoint) ||
@@ -177,7 +173,9 @@ namespace SemanticKernel.ConsoleApp
                 string.IsNullOrWhiteSpace(openAIEmbeddingEndpoint) ||
                 string.IsNullOrWhiteSpace(bingKey) ||
                 string.IsNullOrWhiteSpace(openAIEmbeddingKey) ||
-                string.IsNullOrWhiteSpace(openAIEmbeddingModel))
+                string.IsNullOrWhiteSpace(openAIEmbeddingModel) ||
+                string.IsNullOrWhiteSpace(azureAISearchEndpoint) ||
+                string.IsNullOrWhiteSpace(azureAISearchKey))
             {
                 throw new InvalidOperationException("One or more configuration values are missing. Please check your user secrets.");
             }
@@ -190,7 +188,9 @@ namespace SemanticKernel.ConsoleApp
                 OpenAIEmbeddingModel = openAIEmbeddingModel,
                 OpenAIEmbeddingEndpoint = openAIEmbeddingEndpoint,
                 OpenAIEmbeddingKey = openAIEmbeddingKey,
-                BingKey = bingKey
+                BingKey = bingKey,
+                AzureAISearchEndpoint = azureAISearchEndpoint,
+                AzureAISearchKey = azureAISearchKey
             };
         }
 
