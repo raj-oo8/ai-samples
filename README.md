@@ -11,5 +11,5 @@ This repository contains sample projects covering various AI (Artificial Intelli
 - Vector Search
 - Full Text Search
 - Embeddings
-- OpenAI Plugins
+- Native Plugins
 - Bing Web Search
