@@ -54,25 +54,18 @@ namespace SemanticKernel.ConsoleApp
                 Kernel kernel = kernelBuilder.Build();
                 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
-                // Initialize embedding services
-                //var (azureOpenAITextEmbeddingGenerationService, textVectorStoreRecordCollection) = await InitializeTextEmbeddingServices(configurationModel);
-                var (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection) = await InitializeVectorEmbeddingServices(configurationModel);
-
                 // Add the plugins to the kernel
                 kernel.Plugins.AddFromType<TimePlugin>("Time");
                 kernel.Plugins.AddFromType<MathPlugin>("Math");
-
-                //var fullTextSearchPlugin = new FullTextSearchPlugin(
-                //    azureOpenAITextEmbeddingGenerationService,
-                //    textVectorStoreRecordCollection);
+                
+                //var fullTextSearchPlugin = await AddFullTextSearchPluginAsync(configurationModel);
                 //kernel.Plugins.Add(fullTextSearchPlugin.GetTextSearchAsync());
 
-                var vectorSearchPlugin = new VectorSearchPlugin(
-                    azureOpenAIVectorEmbeddingGenerationService,
-                    vectorStoreRecordCollection);
+                var vectorSearchPlugin = await AddVectorSearchPluginAsync(configurationModel);
                 kernel.Plugins.AddFromObject(vectorSearchPlugin);
 
-                kernel.Plugins.Add(CreateBingSearchPlugin(configurationModel));
+                var bingSearchPlugin = AddBingSearchPlugin(configurationModel);
+                kernel.Plugins.Add(bingSearchPlugin);
 
                 // Enable planning
                 AzureOpenAIPromptExecutionSettings promptExecutionSettings = new()
@@ -149,16 +142,6 @@ namespace SemanticKernel.ConsoleApp
             }
         }
 
-        // Create a plugin for Bing search
-        static KernelPlugin CreateBingSearchPlugin(ConfigurationModel configurationModel)
-        {
-            // Create a text search using Bing search
-            var webSearch = new BingTextSearch(configurationModel.BingKey);
-
-            // Build a text search plugin with Bing search and add to the kernel
-            return webSearch.CreateWithGetTextSearchResults("InternetSearch", "Search internet for News, Information, Weather, Finance etc.");
-        }
-
         static ConfigurationModel InitializeConfiguation(IConfiguration configuration)
         {
             var openAIModelId = configuration["OPENAI_MODEL"];
@@ -207,8 +190,17 @@ namespace SemanticKernel.ConsoleApp
             };
         }
 
-        static async Task<(ITextEmbeddingGenerationService, IVectorStoreRecordCollection<Guid, VectorModel>)> InitializeTextEmbeddingServices
-            (ConfigurationModel configurationModel)
+        // Create a plugin for Bing search
+        static KernelPlugin AddBingSearchPlugin(ConfigurationModel configurationModel)
+        {
+            // Create a text search using Bing search
+            var webSearch = new BingTextSearch(configurationModel.BingKey);
+
+            // Build a text search plugin with Bing search and add to the kernel
+            return webSearch.CreateWithGetTextSearchResults("InternetSearch", "Search internet for News, Information, Weather, Finance etc.");
+        }
+
+        static async Task<FullTextSearchPlugin> AddFullTextSearchPluginAsync(ConfigurationModel configurationModel)
         {
             // Create an embedding generation service with the OpenAI API.
             ITextEmbeddingGenerationService azureOpenAITextEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(
@@ -227,11 +219,10 @@ namespace SemanticKernel.ConsoleApp
                 vectorStoreRecordCollection);
             vectorStoreRecordCollection = await embeddingsJob.GenerateEmbeddings();
 
-            return (azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection);
+            return new FullTextSearchPlugin(azureOpenAITextEmbeddingGenerationService, vectorStoreRecordCollection);
         }
 
-        static async Task<(IEmbeddingGenerationService<string, float>, IVectorStoreRecordCollection<Guid, VectorModel>)> InitializeVectorEmbeddingServices
-            (ConfigurationModel configurationModel)
+        static async Task<VectorSearchPlugin> AddVectorSearchPluginAsync(ConfigurationModel configurationModel)
         {
             // Create an embedding generation service with the OpenAI API.
             IEmbeddingGenerationService<string, float> azureOpenAIVectorEmbeddingGenerationService = new AzureOpenAITextEmbeddingGenerationService(
@@ -250,7 +241,7 @@ namespace SemanticKernel.ConsoleApp
                 vectorStoreRecordCollection);
             vectorStoreRecordCollection = await embeddingsJob.GenerateEmbeddings();
 
-            return (azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection);
+            return new VectorSearchPlugin(azureOpenAIVectorEmbeddingGenerationService, vectorStoreRecordCollection);
         }
     }
 }

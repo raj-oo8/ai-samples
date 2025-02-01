@@ -1,3 +1,5 @@
+using Azure.Search.Documents;
+using Azure.Search.Documents.Indexes;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
@@ -11,10 +13,12 @@ namespace SemanticKernel.ConsoleApp.Plugins
     public class AzureAISearchPlugin
     {
         private readonly IVectorStoreRecordCollection<Guid, VectorModel> _vectorStoreRecordCollection;
+        private readonly SearchIndexClient _searchClient;
 
-        public AzureAISearchPlugin(IEmbeddingGenerationService<string, float> embeddingService, IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
+        public AzureAISearchPlugin(SearchIndexClient searchClient, IVectorStoreRecordCollection<Guid, VectorModel> vectorStoreRecordCollection)
         {
             _vectorStoreRecordCollection = vectorStoreRecordCollection;
+            _searchClient = searchClient;
         }
 
         [KernelFunction("EcoGroceries")]
