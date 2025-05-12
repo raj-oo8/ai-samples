@@ -5,11 +5,6 @@ This repository contains sample projects covering various AI (Artificial Intelli
 ## Topics Covered
 
 - Semantic Kernel
-- Chat Completions
 - Function Calling
-- Vector Store
-- Vector Search
-- Full Text Search
-- Embeddings
 - Native Plugins
-- Bing Web Search
+- Azure AI Agent Service
