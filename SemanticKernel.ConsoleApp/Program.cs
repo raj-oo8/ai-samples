@@ -1,10 +1,12 @@
-﻿using Azure.AI.Projects;
-using Azure.Identity;
+﻿using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents.AzureAI;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Plugins.Core;
 using System.ClientModel;
+using AzureAI = Azure.AI.Projects;
+using SemanticKernelAI = Microsoft.SemanticKernel.Agents;
 
 #pragma warning disable SKEXP0110
 
@@ -32,11 +34,12 @@ namespace SemanticKernel.ConsoleApp
                     throw new InvalidOperationException("One or more configuration values are missing. Please check your user secrets.");
                 }
 
-                AIProjectClient client = AzureAIAgent.CreateAzureAIClient(azureAIProjectConnectionString, new AzureCliCredential());
-                AgentsClient agentsClient = client.GetAgentsClient();
+                AzureAI.AIProjectClient client = AzureAIAgent.CreateAzureAIClient(azureAIProjectConnectionString, new AzureCliCredential());
+                AzureAI.AgentsClient agentsClient = client.GetAgentsClient();
 
-                Azure.AI.Projects.Agent definition = await agentsClient.GetAgentAsync(azureAIAgentId);
-                AzureAIAgent agent = new(definition, agentsClient);
+                AzureAI.Agent definition = await agentsClient.GetAgentAsync(azureAIAgentId);
+                KernelPlugin plugin = KernelPluginFactory.CreateFromType<TimePlugin>();
+                AzureAIAgent agent = new(definition, agentsClient, plugins: [plugin]);
 
                 // Initiate a back-and-forth chat
                 string? userInput;
@@ -56,7 +59,7 @@ namespace SemanticKernel.ConsoleApp
                         continue;
                     }
 
-                    Microsoft.SemanticKernel.Agents.AgentThread agentThread = new AzureAIAgentThread(agent.Client);
+                    SemanticKernelAI.AgentThread agentThread = new AzureAIAgentThread(agent.Client);
 
                     try
                     {
