@@ -8,7 +8,7 @@ This repository contains sample projects covering various topics to demonstrate 
 - Function Calling
 - Native Plugins
 - Azure AI Agent Service
-- Chat Completions
+- Chat Completions API
 - Function Calling
 - Vector Store
 - Embeddings
