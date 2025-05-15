@@ -1,7 +1,7 @@
 ﻿using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents.AzureAI;
+using SemanticKernelAzureAI = Microsoft.SemanticKernel.Agents.AzureAI;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Plugins.Core;
 using System.ClientModel;
@@ -10,7 +10,7 @@ using SemanticKernelAI = Microsoft.SemanticKernel.Agents;
 
 #pragma warning disable SKEXP0110
 
-namespace SemanticKernel.ConsoleApp
+namespace AzureAIAgent.ConsoleApp
 {
     public partial class Program
     {
@@ -34,12 +34,12 @@ namespace SemanticKernel.ConsoleApp
                     throw new InvalidOperationException("One or more configuration values are missing. Please check your user secrets.");
                 }
 
-                AzureAI.AIProjectClient client = AzureAIAgent.CreateAzureAIClient(azureAIProjectConnectionString, new AzureCliCredential());
+                AzureAI.AIProjectClient client = SemanticKernelAzureAI.AzureAIAgent.CreateAzureAIClient(azureAIProjectConnectionString, new AzureCliCredential());
                 AzureAI.AgentsClient agentsClient = client.GetAgentsClient();
 
                 AzureAI.Agent definition = await agentsClient.GetAgentAsync(azureAIAgentId);
                 KernelPlugin plugin = KernelPluginFactory.CreateFromType<TimePlugin>();
-                AzureAIAgent agent = new(definition, agentsClient, plugins: [plugin]);
+                SemanticKernelAzureAI.AzureAIAgent agent = new(definition, agentsClient, plugins: [plugin]);
 
                 // Initiate a back-and-forth chat
                 string? userInput;
@@ -59,7 +59,7 @@ namespace SemanticKernel.ConsoleApp
                         continue;
                     }
 
-                    SemanticKernelAI.AgentThread agentThread = new AzureAIAgentThread(agent.Client);
+                    SemanticKernelAI.AgentThread agentThread = new SemanticKernelAzureAI.AzureAIAgentThread(agent.Client);
 
                     try
                     {
