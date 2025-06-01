@@ -4,12 +4,5 @@ This repository contains sample projects covering various topics to demonstrate 
 
 ## Topics Covered
 
-- Semantic Kernel
-- Function Calling
-- Native Plugins
 - Azure AI Agent Service
-- Chat Completions API
-- Function Calling
-- Vector Store
-- Embeddings
-- Bing Web Search
+- Grounding with Bing Search
